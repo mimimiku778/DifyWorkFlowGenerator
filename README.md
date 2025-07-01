@@ -1,245 +1,48 @@
-# Dify ワークフロージェネレーター プロンプト
+# Dify ワークフロージェネレーター
 
 ## 概要
 
-このリポジトリは、[Dify](https://dify.ai)のワークフローを生成するためのプロンプト定義を提供します。YAMLフォーマットで記述された詳細なプロンプト仕様に従って、様々なユースケースに対応したワークフローを作成することができます。
-
-## 特徴
-
-- 3つの基本ノード（開始、LLM、終了）による単純なワークフロー生成
-- 高度な機能を持つノードタイプのサポート：
-  - 質問分類器
-  - 知識検索
-  - HTTPリクエスト
-  - JSONパース
-  - IF/ELSEノード
-  - codeノード
-  - Variable Aggregatorノード
-
-## ファイルの内容
-
-- workflow_generator_prompt.yml
-  - ワークフロー生成プロンプトの定義
-- dify_chatbot/DifyWorkflowGeneate.yml
-  - workflow_generator_prompt.ymlが適用されたDifyのチャットボット
-- exampl/manual_search.yml
-  - ワークフロー生成の例
+Claude Codeと直接会話してDifyワークフローのYAMLファイルを生成できるツールです。複雑なセットアップは不要で、自然言語でワークフローの要件を伝えるだけで、Difyに直接インポート可能なワークフローが生成されます。
 
 ## 使用方法
 
-1. git cloneしてください。
+Claude Codeに以下のように話しかけてください：
+
 ```
-https://github.com/Tomatio13/DifyWorkFlowGenerator.git
+Difyワークフローを生成してください。要件は以下の通りです：
+- 目的：[ワークフローの目的]
+- 処理フロー：
+  1. [ステップ1の説明]
+  2. [ステップ2の説明]
+  3. [ステップ3の説明]
 ```
-2. ワークフロー生成プロンプトdify_chatbot/DifyWorkflowGeneate.ymlをDifyにインポートしてください。
-インポートすると以下のような画面になります。
-![Dify ワークフロージェネレーター](./images/DifyWorkflowGenerator_initial.jpg)
 
-*注意事項*: このプロントは、gpt-4oではなく、claude-3-5-sonnetで実行してください。gpt-4oでは、ワークフローが正しく生成されません。
+### 例：料理レシピ検索ワークフロー
 
-3. 必要な情報を準備：
-   - ワークフローの目的
-   - 知識獲得の制御ブロックを利用する場合、ナレッジのdataset_idsを調べて下さい。
-        - 調べ方
-            ナレッジを含むワークフローを作成してください。
-            作成したワークフローのDSLをエクスポートして下さい。
-            ```yml
-            type: knowledge-retrieval
-            title: Ubuntu知識取得
-            dataset_ids:
-                - 84782981-6a4d-4d19-9189-dd72fe435a57
-            retrieval_mode: multiple
-            ```
-            上記にようにdataset_idsが記述されているのでメモしておいて下さい。
+```
+Difyワークフローを生成してください。要件は以下の通りです：
+- 目的：料理のレシピを調べて記事にする
+- 処理フロー：
+  1. 料理名をユーザーから入力
+  2. インターネットで検索して3つのURLを取得
+  3. 各URLからレシピ情報を並列取得
+  4. 情報を統合して記事形式で出力
+```
 
-4. 以下の画像のようにプロンプトを作成して実行して下さい。
-![Dify ワークフロージェネレーター](./images/DifyWorkflowGenerator.jpg)
-図のようにDifyにインポート可能なYAMLファイルが生成されます。
-5. 生成されたYAMLを別ファイルに貼り付けて、Difyにインポートして下さい。
-6. 以下は、example/manual_search.ymlをインポートした画面です。
-![Dify ワークフロージェネレーター](./images/manual_search.jpg)
+## ファイル構成
 
-## サンプル
-example/adoviser_bot.yml
-  - 質問分類器、知識検索、IF/ELSE分岐、テンプレート変換、パラメータ抽出を利用したワークフロー
-![ワークフローの画像](./images/adoviser_bot.png)
+- `CLAUDE.md` - Claude Code用の詳細な生成アルゴリズム
+- `workflow_generator_prompt.yml` - ワークフロー生成プロンプト仕様
+- `README.md` - このファイル
 
 ## サポートされるノードタイプ
 
-### 基本ノード
-- 開始ノード：ユーザー入力の受付
-  - テキスト入力（短文・段落）
-  - 数値入力
-  - ファイル入力（ドキュメント、画像、音声、動画）
-- LLMノード：OpenAI GPT-4による処理
-- 終了ノード：結果の出力
+**基本ノード**：開始、LLM、終了  
+**分岐・制御**：質問分類器、IF/ELSE分岐、Variable Aggregator  
+**データ処理**：知識検索、HTTPリクエスト、JSONパース、コード実行  
+**テキスト・メディア処理**：Document Extractor、Template Transform、Parameter Extractor、YouTubeトランスクリプト、JinaReader、TavilySearch
 
-### 拡張ノード
-- HTTPリクエストノード：外部API連携
-- JSONパースノード：JSON処理
-- 質問分類器ノード：入力の分類
-- 知識検索ノード：データセットからの情報検索
-- IF/ELSEノード：条件分岐
-- codeノード：Pythonコードの実行
-- Variable Aggregatorノード：複数ノードからの出力を集約
-- Document Extractorノード：ドキュメントからのテキスト抽出
-- Template Transformノード：テンプレートベースの文字列生成
-- Answerノード：応答出力の制御
-- Parameter Extractorノード：テキストからのパラメータ抽出
-- YouTubeトランスクリプトノード：YouTube動画の字幕取得
-- JinaReaderノード：ウェブページのコンテンツ抽出
-- TavilySearchノード：ウェブ検索の実行
-
-## ワークフロー例
-
-### シンプルな処理フロー
-```yaml
-開始 → LLM → 終了
-```
-
-### 分岐を含むフロー
-```yaml
-開始 → 質問分類器 → 知識検索 → LLM → 終了
-                  → 知識検索 → LLM → 終了
-```
-
-### IF/ELSE分岐フロー
-```yaml
-開始 → IF/ELSE → LLM(True) → 終了
-             → LLM(False) → 終了
-```
-
-### 変数集約フロー
-```yaml
-開始 → LLM1 → Variable Aggregator → 終了
-    → LLM2 ↗
-```
-
-### ドキュメント処理フロー
-```yaml
-開始(ファイル入力) → Document Extractor → LLM → 終了
-```
-
-### テンプレート変換フロー
-```yaml
-開始 → Template Transform → LLM → 終了
-```
-
-### 複合処理フロー
-```yaml
-開始(ファイル) → Document Extractor → Template Transform → LLM → 終了
-```
-
-### 応答制御フロー
-```yaml
-開始 → LLM → Answer → 終了
-```
-
-### 複合応答フロー
-```yaml
-開始 → LLM1 → Template Transform → Answer → 終了
-    → LLM2 ↗
-```
-
-### パラメータ抽出フロー
-```yaml
-開始 → Parameter Extractor → LLM → 終了
-```
-
-### 複合パラメータ処理フロー
-```yaml
-開始 → Parameter Extractor → Template Transform → Answer → 終了
-```
-
-### YouTubeトランスクリプトフロー
-```yaml
-開始 → YouTubeトランスクリプト → LLM → 終了
-```
-
-### ウェブコンテンツ処理フロー
-```yaml
-開始 → JinaReader → LLM → 終了
-```
-
-### ウェブ検索フロー
-```yaml
-開始 → TavilySearch → LLM → 終了
-```
-
-### 複合メディア処理フロー
-```yaml
-開始 → YouTubeトランスクリプト → Template Transform → LLM → 終了
-    → JinaReader → ↗
-```
-
-## 制限事項
-
-- OpenAIのgpt-4oモデルのみサポート(変更は、Difyの画面上でモデル設定して下さい。)
-- codeノードでのboolean型の使用不可（number型で0/1を使用）
-- ファイル入力は以下の形式のみサポート：
-  - ドキュメント（PDF、Word等）
-  - 画像（JPG、PNG等）
-  - 音声（MP3、WAV等）
-  - 動画（MP4等）
-- Template Transformノードの制約：
-  - 出力は常にstring型
-  - Jinja2テンプレート構文のみサポート
-  - 複雑な制御構文は非推奨
-- Answerノードの制約：
-  - arrayObject型の変数は非対応
-  - チャットモードでの特別な動作に注意
-  - 変数参照は{{#ノードID.変数名#}}形式のみ
-- Parameter Extractorノードの制約：
-  - パラメータ名は一意である必要がある
-  - 必須パラメータは抽出必須
-  - 画像処理は対応モデルのみ使用可能
-  - 推論モードはpromptまたはfunction_callのみ
-- 未対応のノード:
-  - イテレーションノード
-  - 変数代入ノード
-  - リスト処理
-  - ツールノード全般
-- YouTubeトランスクリプトノードの制約：
-  - 公開動画のみ対応
-  - 字幕が存在する動画のみ対応
-  - 指定言語の字幕が必要
-- JinaReaderノードの制約：
-  - アクセス可能なウェブページのみ対応
-  - JavaScript動的コンテンツは完全な取得が困難
-  - プロキシ設定が必要な場合あり
-- TavilySearchノードの制約：
-  - 検索結果数に制限あり（最大10件）
-  - 一部のドメインでアクセス制限の可能性
-  - 検索深度による処理時間の違いに注意
-
-## difyDslGenCheck.pyについて
-*注意*: 本機能は実験的な機能のため、ワークフローの生成に失敗する可能性が多分にあります。Difyのワークフロー生成機能を利用して下さい。
-### 機能
-- ワークフローの概要を元に、DSLファイルを生成する。
-- 生成したDSLファイルの構造が正しいかチェックする。
-- チェック結果を元に、DSLファイルを修正する。
-
-### 使用方法
-1. difyDslGenCheck.pyに生成したいワークフローの概要を記述して下さい。
-
-```python
-    wanted_workflow = """
-    プロンプト：
-    目的：旅行コンシェルジェのように旅行先の目的地の情報を調査するためのツール
-    1. 入力情報として、旅行先の地名を入力してもらう。
-    2. インターネットを検索し、旅行先の観光情報やグルメ情報が書かれたURLを3つ入手する。
-    3. 3つのURLから情報を取得する。3つは並列に処理すること。
-    4. 3つのURLから得た情報をLLに入力し、良好先の情報を整理して出力する。出力は、旅行情報雑誌に掲載できる文章に仕上げること。
-    """
-```
-2. スクリプトを実行して下さい。
-```bash
-export ANTHROPIC_API_KEY="your_anthropic_api_key"
-python -m venv dify_env
-source dify_env/bin/activate
-pip install -r requirements.txt
-python difyDslGenCheck.py
-```
+詳細な仕様は`workflow_generator_prompt.yml`を参照してください。
 
 
 ## ライセンス
