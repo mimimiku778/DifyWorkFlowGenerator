@@ -103,7 +103,16 @@ CREATE TABLE `openchat_master` (
 ) COMMENT='オプチャグラフがLINEオープンチャット公式サイトから収集したオープンチャットマスターテーブル';
 ```
 
-## 制約
-- MariaDB 10.5
-- established_at=Unixタイムスタンプ（FROM_UNIXTIME()）
-- 詳細：`https://openchat-review.me/oc/{openchat_id}`
+### 人数変化ランキング（growth_ranking_*）
+オプチャグラフが収集した人数統計のみに基づくランキング
+
+### LINE公式活動ランキング（line_official_activity_*）
+LINE側の複雑なアルゴリズム（活動量等を含む）によるランキング履歴
+
+### データベース仕様
+- **エンジン**: MariaDB 10.5
+- **API接続**: `http://localhost:10000/?query=` + urllib.parse.quote(SQL)
+
+### 注意事項
+- MariaDB 10.5構文を厳守
+- 大量テキストはLEFT(column, 30)で制限
