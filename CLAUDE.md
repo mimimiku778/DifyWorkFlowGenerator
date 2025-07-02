@@ -10,6 +10,10 @@ Claude Codeは、LINEオープンチャット（オプチャグラフ）のデ�
 - 分析の目的（トレンド把握、特定チャット調査、カテゴリ分析など）
 - 対象期間（直近、過去3ヶ月、全期間など）
 - 重視する指標（成長率、絶対数、ランキングなど）
+- **⚠️ 必須：現在時刻を取得し、growth_ranking_*テーブルのデータ時点を判定・明示**
+  - 現在時刻の分が30分未満なら前の時間の30分頃のデータ
+  - 現在時刻の分が30分以上なら現在時間の30分頃のデータ
+  - growth_ranking_weeklyは当日0:00のデータ
 
 ### 2. データ取得と分析
 - 適切なSQLクエリを構築
@@ -23,31 +27,72 @@ Claude Codeは、LINEオープンチャット（オプチャグラフ）のデ�
 
 ## 主要分析パターン
 
-### トレンド分析
-```python
-# 急上昇オープンチャット
-SELECT grh.*, om.display_name, om.current_member_count
+### ランキング分析（2種類の性質の異なるランキング）
+
+#### 1. 人数変化ランキング（growth_ranking_*）
+オプチャグラフが収集した人数統計のみに基づくランキング：
+```sql
+-- 1時間の急上昇（毎時更新）
+SELECT grh.ranking_position, grh.member_increase_count, grh.growth_rate_percent,
+       om.display_name, om.current_member_count
 FROM growth_ranking_hourly grh
 JOIN openchat_master om ON grh.openchat_id = om.openchat_id
+ORDER BY grh.ranking_position
+LIMIT 20;
+
+-- 24時間の成長ランキング（毎時更新）
+SELECT grd.*, om.display_name
+FROM growth_ranking_daily grd
+JOIN openchat_master om ON grd.openchat_id = om.openchat_id;
+
+-- 週間成長ランキング（日次更新）
+SELECT grw.*, om.display_name
+FROM growth_ranking_weekly grw
+JOIN openchat_master om ON grw.openchat_id = om.openchat_id;
+```
+
+#### 2. LINE公式活動ランキング（line_official_activity_*）
+LINE側の複雑なアルゴリズム（活動量等を含む）によるランキング履歴：
+```sql
+-- LINE公式「ランキング」履歴
+SELECT loar.*, om.display_name, c.category_name
+FROM line_official_activity_ranking_history loar
+JOIN openchat_master om ON loar.openchat_id = om.openchat_id
+LEFT JOIN categories c ON loar.category_id = c.category_id
+WHERE loar.openchat_id = ?
+ORDER BY loar.record_date DESC;
+
+-- LINE公式「急上昇」履歴
+SELECT loat.*, om.display_name
+FROM line_official_activity_trending_history loat
+JOIN openchat_master om ON loat.openchat_id = om.openchat_id
+WHERE loat.record_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
 ```
 
 ### 個別チャット詳細分析
-```python
-# メンバー数推移（最重要）
-SELECT * FROM daily_member_statistics 
+```sql
+-- メンバー数推移（日次統計）
+SELECT record_id, member_count, statistics_date,
+       LAG(member_count) OVER (ORDER BY statistics_date) as prev_count,
+       member_count - LAG(member_count) OVER (ORDER BY statistics_date) as daily_change
+FROM daily_member_statistics 
 WHERE openchat_id = ? 
 ORDER BY statistics_date DESC
+LIMIT 30;
 ```
 
 ### カテゴリ別統計
-```python
-# カテゴリ別の規模と成長
-SELECT c.category_name, 
-       COUNT(*) as count,
-       AVG(om.current_member_count) as avg_members
+```sql
+-- カテゴリ別の規模と特徴
+SELECT c.category_id, c.category_name, 
+       COUNT(*) as total_chats,
+       AVG(om.current_member_count) as avg_members,
+       MAX(om.current_member_count) as max_members,
+       SUM(CASE WHEN om.verification_badge IS NOT NULL THEN 1 ELSE 0 END) as verified_count
 FROM openchat_master om
 JOIN categories c ON om.category_id = c.category_id
 GROUP BY c.category_id
+ORDER BY total_chats DESC;
 ```
 
 ## 高度な分析手法
@@ -85,15 +130,19 @@ import requests
 import urllib.parse
 from datetime import datetime
 
-# 現在日時の取得（重要：分析基準日の明確化）
 current_datetime = datetime.now()
-print(f"分析基準日時: {current_datetime}")
-
 api_url = "http://localhost:10000/?query="
 query = "SELECT ..."
 url = api_url + urllib.parse.quote(query)
 response = requests.get(url, timeout=10)
 ```
+
+### growth_ranking_*テーブルのデータ時点判定（重要）
+- **growth_ranking_hourly/daily**: 毎時30分頃更新
+  - 現在時刻の分 < 30分 → 前の時間の30分頃のデータ
+  - 現在時刻の分 ≥ 30分 → 現在時間の30分頃のデータ
+- **growth_ranking_weekly**: 毎日0:00更新（当日0:00のデータ）
+- **必須**: 分析開始時に現在時刻を確認し、ランキングデータの時点を明示すること
 
 ### エラーハンドリング
 - タイムアウト設定（10秒）
@@ -197,9 +246,15 @@ CREATE TABLE `openchat_master` (
 - **API接続**: `http://localhost:10000/?query=` + urllib.parse.quote(SQL)
 
 ### 時系列データの扱い
-- **growth_ranking系テーブル**は常に直近更新の最新データのみ保持（更新時刻カラムなし）
-- 過去の成長推移を見る場合は**daily_member_statistics**を使用
-- ランキング履歴は**line_official_activity_**系テーブルで確認
+- **growth_ranking_*テーブル**（3種）：人数変化のみに基づく最新ランキング（履歴なし、日時カラムなし）
+  - hourly: 1時間の変化（**毎時30分頃更新**）
+  - daily: 24時間の変化（**毎時30分頃更新**）  
+  - weekly: 1週間の変化（**毎日0:00更新**）
+  - ⚠️ これらのテーブルには更新日時カラムがないため、現在時刻から更新タイミングを推定する必要がある
+- **line_official_activity_*テーブル**（2種）：LINE公式の活動量ベースランキング履歴
+  - ranking_history: 「ランキング」の日次履歴（record_date, recorded_atあり）
+  - trending_history: 「急上昇」の日次履歴（record_date, recorded_atあり）
+- **daily_member_statistics**：個別チャットの人数推移を日次で完全記録（statistics_dateあり）
 
 ### 注意事項
 - MariaDB 10.5構文を厳守
