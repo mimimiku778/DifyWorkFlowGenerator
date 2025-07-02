@@ -7,12 +7,39 @@
 - Pythonエラー時は`pip install`
 
 ## API接続
+データベースアクセスは`http://localhost:10000/?query=`のAPIエンドポイントを使用
+
+### 基本的なアクセス方法
+```bash
+# curl（最もシンプル）
+curl "http://localhost:10000/?query=SELECT%20*%20FROM%20openchat_master%20LIMIT%205"
+```
+
+### Pythonでのデータ分析例
 ```python
 import requests, urllib.parse
+import pandas as pd
 from datetime import datetime
-current_datetime = datetime.now()
-url = "http://localhost:10000/?query=" + urllib.parse.quote("SELECT ...")
-response = requests.get(url, timeout=10)
+
+# SQLクエリ実行
+def query_db(sql):
+    url = "http://localhost:10000/?query=" + urllib.parse.quote(sql)
+    response = requests.get(url, timeout=10)
+    return response.json()
+
+# 1. データ取得
+sql = "SELECT display_name, current_member_count FROM openchat_master ORDER BY current_member_count DESC LIMIT 10"
+data = query_db(sql)
+df = pd.DataFrame(data)
+
+# 2. 形態素解析（必要に応じてpip install mecab-python3）
+import MeCab
+tagger = MeCab.Tagger()
+for name in df['display_name']:
+    keywords = tagger.parse(name).split('\n')
+    # 分析結果に基づいて追加のAPIコールを実行
+    # filtered_sql = f"SELECT * FROM openchat_master WHERE display_name LIKE '%{keyword}%'"
+    # additional_data = query_db(filtered_sql)
 ```
 
 ## スキーマ
