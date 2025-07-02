@@ -61,8 +61,8 @@ CREATE TABLE `line_official_activity_ranking_history` (
   `openchat_id` int(11) NOT NULL COMMENT 'オプチャグラフでオープンチャットを識別するための主キー（openchat_masterと紐づく）',
   `category_id` int(11) NOT NULL COMMENT 'カテゴリID（0=すべて、1以上=各カテゴリ）',
   `activity_ranking_position` int(11) NOT NULL COMMENT 'その日のLINE公式「ランキング」順位（中央値、何件中何位かはline_official_ranking_total_countで確認）',
-  `recorded_at` datetime NOT NULL COMMENT '記録日時',
-  `record_date` date NOT NULL DEFAULT '2024-01-01' COMMENT '記録日',
+  `recorded_at` datetime NOT NULL COMMENT '記録日時（line_official_ranking_total_countと紐づく）',
+  `record_date` date NOT NULL DEFAULT '2024-01-01' COMMENT '記録日（１つのオープンチャットにつき同じ日付は１件。そのユニークキー用のカラム。）',
   PRIMARY KEY (`record_id`)
 ) COMMENT='LINEオープンチャット公式サイトの「ランキング」履歴（カテゴリ別・全体、1日1件、中央値保存）';
 
@@ -71,8 +71,8 @@ CREATE TABLE `line_official_activity_trending_history` (
   `openchat_id` int(11) NOT NULL COMMENT 'オプチャグラフでオープンチャットを識別するための主キー（openchat_masterと紐づく）',
   `category_id` int(11) NOT NULL COMMENT 'カテゴリID（0=すべて、1以上=各カテゴリ）',
   `activity_trending_position` int(11) NOT NULL COMMENT 'その日のLINE公式「急上昇」順位（最大値、何件中何位かはline_official_ranking_total_countで確認）',
-  `recorded_at` datetime NOT NULL COMMENT '記録日時',
-  `record_date` date NOT NULL DEFAULT '2024-01-01' COMMENT '記録日',
+  `recorded_at` datetime NOT NULL COMMENT '記録日時（line_official_ranking_total_countと紐づく）',
+  `record_date` date NOT NULL DEFAULT '2024-01-01' COMMENT '記録日（１つのオープンチャットにつき同じ日付は１件。そのユニークキー用のカラム。）',
   PRIMARY KEY (`record_id`)
 ) COMMENT='LINEオープンチャット公式サイトの「急上昇」履歴（カテゴリ別・全体、1日1件、最大値保存）';
 
@@ -141,3 +141,31 @@ LINE側の複雑なアルゴリズム（活動量等を含む）によるラン�
 3. カテゴリ: 全て？特定カテゴリ？
 4. 表示: 上位何位？どんな情報？」
 ```
+
+## 高度な分析手法
+
+### 形態素解析とトレンド分析
+オープンチャットを分析するときは適宜Mecabで形態素分析を行い、適宜キーワードをWEBで検索して意味を調べたり、トレンドの傾向やどのようなものかを明らかにしながら分析を進める
+
+### 露出制限の検出と分析
+ユーザーがよく気にすることとして、「検索落ち・検索非表示・検索できない・ランキングに表示されない」などの話題があり、これはLINEオープンチャット公式サイトやLINEアプリで特定のオープンチャットをキーワード検索しても結果に表示されない露出制限状態となっているという意味です。
+
+#### 露出制限の検出方法
+データベースから露出制限の傾向を調べる方法として、`line_official_activity_ranking_history`テーブルに特定のオープンチャットについて過去のデータがあるがある時点からデータがない場合、露出制限状態となっている可能性があります。
+
+ただし、他に露出制限と同様の状態になる条件として以下があります：
+- 単なるランキング圏外
+- ユーザーがオープンチャットの情報を最後に更新してから24時間以内
+
+#### 精度の高い露出制限検出
+露出制限の傾向を調べるときは、`line_official_ranking_total_count`と結合して、`line_official_ranking_total_count.activity_ranking_total_count`の50％より低い`activity_ranking_position`にしぼり、更に直近数日以上ランキングが途切れている`openchat_id`を抽出すると精度が高まります。
+
+つまり、最後のランキング順位が上位50％だが、数日間以上ランキングに掲載がないルームはLINE運営による露出制限の可能性が高いです。
+
+#### 露出制限の理由
+露出制限となる最大の理由はLINEオープンチャットのガイドラインにグレーゾーンのレベルで抵触している場合です。完全に抵触している場合は露出制限より前にLINE運営によるオープンチャットの削除がなされます。
+
+ガイドラインURL: https://openchat-jp.line.me/other/guideline
+Admins' Hub - よくある質問: https://openchat-jp.line.me/admin/questions
+
+必要に応じてガイドラインを参照して分析の情報として利用しましょう。ただし、露出制限と異なるコンテキストで露出制限やガイドラインの話題を無理に結びつける必要はありません。
