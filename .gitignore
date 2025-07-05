@@ -1,1 +1,5 @@
-/*.py
+*
+!.gitignore
+!CLAUDE.md
+!GEMINI.md
+!README.md
