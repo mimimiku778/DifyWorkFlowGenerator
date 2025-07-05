@@ -1,4 +1,4 @@
-# オープンチャット分析システム
+# LINEオープンチャット分析システム（オプチャグラフが収集したデータベースによる提供）
 
 データベースには公式サイト掲載分（10人以上＆日次活動あり）のみ含まれるため、全体推移は不正確。正確な分析には、1年前や半年前など一定期間継続存在するルームに限定してフィルタリングすること。
 
@@ -10,17 +10,11 @@
   - growth_ranking_past_hour/past_24_hours: database_last_updateの時間に更新済み
   - growth_ranking_past_week: database_last_updateの日の0:00に更新済み
 
-- **Python実行時**：
-  - 環境にモジュール不足がないか実行前に確認
-  - Pythonで基本的コードの実行とデータ取得が可能かどうか簡単なスクリプトで確認することを推奨。
-  - Pythonのコードは、特別な理由がなければBashのコマンドラインから直接実行すれば効率がよい。
-  - １つのスクリプトが長すぎるとタイムアウトエラーしやすい。ステップごとに分割し、ステップごとの取得データは適宜作業ディレクトリに一時ファイルを生成して保持ことを推奨。（コンテキストウィンドウの節約とスクリプト失敗時にリカバリーしやすくするため）
-
 ## API接続
-データベースアクセスは`http://localhost:7000/database/33c5f49c9ce7393a2c34462bb1178/query?stmt=`のAPIエンドポイントを使用し直接SQLクエリを実行
+データベースアクセスは`https://openchat-review.me/database/33c5f49c9ce7393a2c34462bb1178/query?stmt=`のAPIエンドポイントを使用し直接SQLクエリを実行
 
 ### スキーマ情報の取得
-初回または必要に応じて`http://localhost:7000/database/33c5f49c9ce7393a2c34462bb1178/schema`からデータベースのスキーマ情報を取得してください。
+初回または必要に応じて`https://openchat-review.me/database/33c5f49c9ce7393a2c34462bb1178/schema`からデータベースのスキーマ情報を取得してください。
 
 ### レスポンス形式例
 スキーマ情報の取得時の例：
@@ -62,57 +56,13 @@
 
 ### 基本的なアクセス方法
 スキーマ情報の取得：
-```bash
-curl "http://localhost:7000/database/33c5f49c9ce7393a2c34462bb1178/schema"
+```
+"https://openchat-review.me/database/33c5f49c9ce7393a2c34462bb1178/schema"
 ```
 
 データベースアクセス：
-```bash
-curl "http://localhost:7000/database/33c5f49c9ce7393a2c34462bb1178/query?stmt=SELECT%20*%20FROM%20openchat_master%20LIMIT%205"
 ```
-
-### Pythonでのデータ分析例
-```python
-import requests, urllib.parse
-import pandas as pd
-from datetime import datetime
-
-# SQLクエリ実行
-def query_db(sql):
-    url = "http://localhost:7000/database/33c5f49c9ce7393a2c34462bb1178/query?stmt=" + urllib.parse.quote(sql)
-    response = requests.get(url)
-    return response.json()
-
-# 1. データ取得 (大量データ取得時は一時ファイルに保存)
-sql = "SELECT display_name, current_member_count FROM openchat_master ORDER BY current_member_count DESC LIMIT 10"
-data = query_db(sql)
-df = pd.DataFrame(data)
-
-# 2. 形態素解析（必要に応じてpip install mecab-python3）
-import MeCab
-# MeCabの初期化
-mecab = MeCab.Tagger("-d /var/lib/mecab/dic/ipadic-utf8 -Ochasen")
-
-for name in df['display_name']:
-    keywords = mecab.parse(name).split('\n')
-    # 分析結果に基づいて追加のAPIコールを実行
-    # filtered_sql = f"SELECT * FROM openchat_master WHERE display_name LIKE '%{keyword}%'"
-    # additional_data = query_db(filtered_sql)
-```
-
-### 大量データ処理時の注意
-```python
-# チャンク処理の例
-def process_large_data(total_count, chunk_size=10000):
-    """大量データをチャンク単位で処理"""
-    for offset in range(0, total_count, chunk_size):
-        sql = f"""
-        SELECT * FROM openchat_master 
-        LIMIT {chunk_size} OFFSET {offset}
-        """
-        chunk_data = query_db(sql)
-        # チャンクごとの処理
-        process_chunk(chunk_data)
+"https://openchat-review.me/database/33c5f49c9ce7393a2c34462bb1178/query?stmt=SELECT%20*%20FROM%20openchat_master%20LIMIT%205"
 ```
 
 ### 人数変化ランキング（growth_ranking_*）
